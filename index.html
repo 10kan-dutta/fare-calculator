@@ -132,7 +132,7 @@
         routingService.calculateRoute(params, success => {
        
         console.log(success.response.route[0].summary.distance);
-        var html = document.getElementById('details').innerHTML += `<p>Fare in Rs : ${(success.response.route[0].summary.distance/1000)*21 + 180}</p>`;
+        var html = document.getElementById('details').innerHTML += `<p>Distance in KM : ${(success.response.route[0].summary.distance/1000)} <br> Fare in Rs : ${(success.response.route[0].summary.distance/1000)*21 + 180}</p>`;
         const routeLineString = new H.geo.LineString();
         success.response.route[0].shape.forEach(point => {
             const [lat, lng] = point.split(",");
