@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Route Distance Calculator</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <div class="side-bar"></div>
+        <div class="center-bar">
+            <p>Route Calculation</p>
+            <div class="input-card">
+                <p>Enter the starting and ending point of the journery</p>
+                <form autocomplete="off">
+                    <div class="autocomplete">
+                      <input id="myInput1" type="text" name="mylocation" placeholder="location">
+                      <div id="autocom-box1"> </div>
+                    </div>
+                    
+                    <div class="autocomplete">
+                        <input id="myInput2" type="text" name="mylocation" placeholder="location">
+                        <div id="autocom-box2"> </div>
+                    </div>
+                   
+                </form>
+                <div id="map"></div>
+            </div>
+        </div>
+        <div class="end-bar">
+            <div id="from">
+                <p>From</p>
+            </div>
+            <div id="destination">
+                <p>To</p>
+            </div>
+            <div id="details"></div>
+        </div>
+    </div>
+
+
+    <script src="https://js.api.here.com/v3/3.1/mapsjs-core.js"></script>
+        <script src="https://js.api.here.com/v3/3.1/mapsjs-service.js"></script>
+        <script src="https://js.api.here.com/v3/3.1/mapsjs-ui.js"></script>
+        <script src="https://js.api.here.com/v3/3.1/mapsjs-mapevents.js"type="text/javascript" charset="utf-8"></script>
+        <script>
+            const input1 = document.getElementById('myInput1');
+            const input2 = document.getElementById('myInput2');
+            const matchList = [document.getElementById('autocom-box1'),document.getElementById('autocom-box2')];
+            
+
+            input1.addEventListener('input', ()=>searchState(input1.value,0));
+            input2.addEventListener('input', ()=>searchState(input2.value,1));
+            const ar=[]
+            const match=[]
+            const searchState= async (searchState,s) => {
+            fetch('https://autocomplete.geocoder.ls.hereapi.com/6.2/suggest.json?query='+searchState+'&apiKey=jH-sW5v83VK9vbns41raQHUiLv27a8YqiQoDdYyYUK4')
+            .then(response => response.json())
+            .then(json => outputHTML(json,s))
+            }
+            const outputHTML = (jsons,s)=>{
+            const html = jsons.suggestions.map(json => `
+            <div class="location-box">
+                <p class="location"> ${json.label}</p>
+                <p class="location-id">${json.locationId}</p>
+            </div>
+            `).join()
+            match.push(jsons.suggestions)
+            console.log(match)
+            matchList[s].innerHTML = html;
+            let allList = matchList[s].getElementsByClassName("location-id");
+            for (let i = 0; i < allList.length; i++) {
+                allList[i].setAttribute("onclick", "select(this)");
+                }
+            }
+            function select(element,i){
+            let selectData = element.textContent;
+            
+            console.log(selectData)
+            fetch('https://geocoder.ls.hereapi.com/6.2/geocode.json?locationid='+selectData+'&jsonattributes=1&gen=9&apiKey=jH-sW5v83VK9vbns41raQHUiLv27a8YqiQoDdYyYUK4')
+            .then(response => response.json())
+            .then(json =>Callfunction(json.response.view[0].result[0]))
+            }
+            function Callfunction(element){
+                ar.push(element);
+                console.log(ar)
+                if(ar.length>1){
+                    mapdisplay(ar);
+                }  
+            }
+            function mapdisplay(json) {
+            var platform = new H.service.Platform({
+            'apikey': 'jH-sW5v83VK9vbns41raQHUiLv27a8YqiQoDdYyYUK4'
+          });
+            // Retrieve the target element for the map:
+          var targetElement = document.getElementById('map');
+          
+          // Get the default map types from the platform object:
+          var defaultLayers = platform.createDefaultLayers();
+
+          var htmlfrom = document.getElementById('from').innerHTML += `
+          <p>Adress: ${json[json.length-2].location.address.label}</p>
+          <p>city : ${json[json.length-2].location.address.city}</p>
+          <p>postalCode : ${json[json.length-2].location.address.postalCode}</p>
+          `;
+
+          var htmlto = document.getElementById('destination').innerHTML += `
+          <p>Adress: ${json[json.length-1].location.address.label}</p>
+          <p>city : ${json[json.length-1].location.address.city}</p>
+          <p>postalCode : ${json[json.length-1].location.address.postalCode}</p>
+          `;
+          // Instantiate the map:
+          var map = new H.Map(
+             document.getElementById('map'),
+            defaultLayers.vector.normal.map,
+            {
+            zoom: 10,
+            center: { lat: 26.71308, lng: 93.96918}
+            });
+
+          const routingService = platform.getRoutingService();
+          var latitude = [String(json[json.length-2].location.displayPosition.latitude),String(json[json.length-1].location.displayPosition.latitude)]
+          var longitude = [String(json[json.length-2].location.displayPosition.longitude),String(json[json.length-1].location.displayPosition.longitude)]
+          const params = {
+            mode: "fastest;car;traffic:enabled",
+            waypoint0: latitude[0]+','+longitude[0],
+            waypoint1: latitude[1]+','+longitude[1],
+            representation: "display",
+            routeAttributes: "summary"
+          };
+        routingService.calculateRoute(params, success => {
+       
+        console.log(success.response.route[0].summary.distance);
+        var html = document.getElementById('details').innerHTML += `<p>Fare in Rs : ${(success.response.route[0].summary.distance/1000)*21 + 180}</p>`;
+        const routeLineString = new H.geo.LineString();
+        success.response.route[0].shape.forEach(point => {
+            const [lat, lng] = point.split(",");
+            routeLineString.pushPoint({
+              lat: lat,
+              lng: lng
+        });
+      });
+        const routePolyline = new H.map.Polyline(
+            routeLineString,
+            {
+            style: {
+                lineWidth: 5
+                }
+            }
+        );
+        map.addObject(routePolyline);
+        }, error => {
+        console.log(error);
+        });
+    } 
+
+        </script>
+</body>
+</html>
